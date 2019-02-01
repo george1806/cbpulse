@@ -76,49 +76,38 @@ class cbPulse extends CRMEntity {
 		if ($this->HasDirectImageField) {
 			$this->insertIntoAttachment($this->id, $module);
 		}
-		if (empty($this->mode)) {
-			$flowManager = new VTWorkflowManager($adb);
-			$taskManager = new VTTaskManager($adb);
-			$pulseworkflow = $flowManager->newWorkFlow('cbPulse');
-			$pulseworkflow->test = '[{"fieldname":"questionid","operation":"is","value":'.$this->column_fields['questionid'].'}]';
-			$pulseworkflow->description = 'Send MM Question';
-			$pulseworkflow->executionCondition = VTWorkflowManager::$ON_SCHEDULE;
-			$pulseworkflow->defaultworkflow = 0;
-			$pulseworkflow->schtypeid = 8;
-			$intervalMin = (int)($this->column_fields['schminuteinterval']);
-			$pulseworkflow->schminuteinterval = $this->column_fields['schminuteinterval'];
-			$pulseworkflow->schtime = $this->column_fields['schtime'];
-			$pulseworkflow->schdayofmonth = $this->column_fields['schdayofmonth'];
-			$pulseworkflow->schdayofweek = $this->column_fields['schdayofweek'];
-			$pulseworkflow->schannualdates = $this->column_fields['schannualdates'];
-			$pulseworkflow->purpose = 'Send Question message to mattermost';
-			$flowManager->save($pulseworkflow);
-			$qres = $adb->pquery(
-				"select * from vtiger_cbquestion WHERE cbquestionid=?",
-				array($this->column_fields['questionid'])
-			);
-			$adb->pquery(
-				"UPDATE vtiger_cbpulse SET workflowid = ? WHERE cbpulse_no=?",
-				array((int)$pulseworkflow->id, $this->column_fields['cbpulse_no'])
-			);
-			$task = $taskManager->createTask('CBSendMMMSGTask', $pulseworkflow->id);
-			$task->messageTitle = $qres->fields['qtype'];
-			$task->messageBody = $qres->fields['qname'];
-			$task->active = true;
-			$task->summary = 'Send Question to MM';
-			$task->executeImmediately = true;
-			$taskManager->saveTask($task);
-		}
 		if ($this->mode == 'edit') {
-			$result = $adb->pquery(
-				"select * from vtiger_cbpulse WHERE cbpulseid=?",
-				array(vtlib_purify($_REQUEST['record']))
-			);
-			var_dump($result);
-			die();
-			$workflowId = (int)(vtlib_purify($result->fields['workflowid']));
+			$result = $adb->pquery('select * from vtiger_cbpulse WHERE cbpulseid=?', array(vtlib_purify($_REQUEST['record'])));
+			$workflowId = (int)$result->fields['workflowid'];
 			// the deletion  of old workflow and creation of new workflow
+			$delIns = new VTWorkflowManager($adb);
+			$delres = $delIns->delete($workflowId);
 		}
+		$flowManager = new VTWorkflowManager($adb);
+		$taskManager = new VTTaskManager($adb);
+		$pulseworkflow = $flowManager->newWorkFlow('cbPulse');
+		$pulseworkflow->test = '[{"fieldname":"questionid","operation":"is","value":'.$this->column_fields['questionid'].'}]';
+		$pulseworkflow->description = 'Send MM Question';
+		$pulseworkflow->executionCondition = VTWorkflowManager::$ON_SCHEDULE;
+		$pulseworkflow->defaultworkflow = 0;
+		$pulseworkflow->schtypeid = 8;
+		$intervalMin = (int)($this->column_fields['schminuteinterval']);
+		$pulseworkflow->schminuteinterval = $this->column_fields['schminuteinterval'];
+		$pulseworkflow->schtime = $this->column_fields['schtime'];
+		$pulseworkflow->schdayofmonth = $this->column_fields['schdayofmonth'];
+		$pulseworkflow->schdayofweek = $this->column_fields['schdayofweek'];
+		$pulseworkflow->schannualdates = $this->column_fields['schannualdates'];
+		$pulseworkflow->purpose = 'Send Question message to mattermost';
+		$flowManager->save($pulseworkflow);
+		$qres = $adb->pquery("select * from vtiger_cbquestion WHERE cbquestionid=?", array($this->column_fields['questionid']));
+		$adb->pquery("UPDATE vtiger_cbpulse SET workflowid = ? WHERE cbpulse_no=?", array((int)$pulseworkflow->id, $this->column_fields['cbpulse_no']));
+		$task = $taskManager->createTask('CBSendMMMSGTask', $pulseworkflow->id);
+		$task->messageTitle = $qres->fields['qtype'];
+		$task->messageBody = $qres->fields['qname'];
+		$task->active = true;
+		$task->summary = 'Send Question to MM';
+		$task->executeImmediately = true;
+		$taskManager->saveTask($task);
 	}
 	/**
 	 * Invoked when special actions are performed on the module.
