@@ -7,5 +7,17 @@
  * Portions created by vtiger are Copyright (C) vtiger.
  * All Rights Reserved.
  ************************************************************************************/
+if (isset($_REQUEST['record'])) {
+	$recordId = (int)($_REQUEST['record']);
+	deleteAsociatedWorkflow($recordId);
+}
 require_once 'modules/Vtiger/Delete.php';
+
+function deleteAsociatedWorkflow($recordId) {
+	global $adb;
+	$result = $adb->pquery('select workflowid from vtiger_cbpulse WHERE cbpulseid=?', array($recordId));
+	$workflowId = (int)$result->fields['workflowid'];
+	$delIns = new VTWorkflowManager($adb);
+	$delIns->delete($workflowId);
+}
 ?>
